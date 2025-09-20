@@ -4,7 +4,7 @@ pyproj/*/*.c
 pyproj/*/*.html
 pyproj/*.html
 proj-*/
-
+/data
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

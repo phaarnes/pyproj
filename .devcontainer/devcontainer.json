@@ -1,0 +1,17 @@
+{
+	"name": "Pyproj Dev Container",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "."
+	},
+	"settings": {
+		"terminal.integrated.defaultProfile.linux": "bash"
+	},
+	"extensions": [
+		"ms-python.python",
+		"ms-python.vscode-pylance"
+	],
+	"forwardPorts": [],
+	"postCreateCommand": "pip install -e .",
+	"remoteUser": "vscode"
+}
