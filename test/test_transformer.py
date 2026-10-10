@@ -2091,6 +2091,56 @@ def test_transformer_from_crs__epoch_pickle():
     assert unpickled._transformer_maker.target_epoch is None
 
 
+# ITRF2014 -> GDA2020 at lat=-30, lon=150 with the coordinates at epoch 2022.0.
+# Reference values from: cs2cs -d 10 EPSG:9000 EPSG:7844 --s_epoch 2022 and
+# cs2cs -d 10 EPSG:7844 EPSG:9000 --t_epoch 2022 (PROJ 9.4.0 to 9.9.0).
+# An input time of inf means "unknown": the coordinate epoch is used and
+# returned as the output time.
+EPOCH_TRANSFORM_CASES = [
+    (
+        {"crs_from": "EPSG:9000", "crs_to": "EPSG:7844", "source_epoch": 2022.0},
+        (-30.0000009904, 149.9999995558, 2022.0),
+    ),
+    (
+        {"crs_from": "EPSG:7844", "crs_to": "EPSG:9000", "target_epoch": 2022.0},
+        (-29.9999990096, 150.0000004442, 2022.0),
+    ),
+]
+
+
+def test_transformer_from_crs__source_epoch__3d():
+    # reference values from: cs2cs -d 10 EPSG:7912 EPSG:7843 --s_epoch 2022
+    transformer = Transformer.from_crs("EPSG:7912", "EPSG:7843", source_epoch=2022.0)
+    lat, lon, height, time = transformer.transform(-30, 150, 0, numpy.inf)
+    assert_almost_equal((lat, lon), (-30.0000009904, 149.9999995558), decimal=9)
+    assert_almost_equal(height, 0.0003187982, decimal=6)
+    assert time == 2022.0
+
+
+@pytest.mark.parametrize("kwargs, expected", EPOCH_TRANSFORM_CASES)
+def test_transformer_from_crs__epoch_pickle__transform(kwargs, expected):
+    transformer = Transformer.from_crs(**kwargs)
+    unpickled = pickle.loads(pickle.dumps(transformer))
+    lat, lon, _, time = unpickled.transform(-30, 150, 0, numpy.inf)
+    assert_almost_equal((lat, lon), expected[:2], decimal=9)
+    assert time == expected[2]
+
+
+@pytest.mark.parametrize("kwargs, expected", EPOCH_TRANSFORM_CASES)
+def test_transformer_from_crs__epoch_multithread(kwargs, expected):
+    transformer = Transformer.from_crs(**kwargs)
+    # use it in this thread first, so other threads get their own copy
+    transformer.transform(-30, 150, 0, numpy.inf)
+
+    def transform(num):
+        return transformer.transform(-30, 150, 0, numpy.inf)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        for lat, lon, _, time in executor.map(transform, range(4)):
+            assert_almost_equal((lat, lon), expected[:2], decimal=9)
+            assert time == expected[2]
+
+
 def test_transformer__get_last_used_operation():
     transformer = Transformer.from_crs("EPSG:4326", "EPSG:3857")
     with pytest.raises(
